@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mất đời trai</title>
+  <title>Pixel Art Scene - Gói Con Tim Làm Quà</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -23,6 +23,60 @@
       width: 100%; height: 100%; display: block;
       image-rendering: pixelated; image-rendering: crisp-edges;
     }
+    
+    /* --- CSS cho lớp Overlay và Nhóm Nút Tương Tác --- */
+    .interactive-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+    .interactive-overlay.show {
+      opacity: 1; pointer-events: auto;
+    }
+    
+    .btn-group {
+      display: flex; gap: 16px;
+      flex-direction: row; align-items: center; justify-content: center;
+      width: 100%; height: 100%; position: relative;
+    }
+
+    .btn-agree, .btn-decline {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px; padding: 14px 16px;
+      border: 3px solid #fff; border-radius: 8px;
+      cursor: pointer; text-transform: uppercase;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .btn-agree {
+      background-color: #ff3366; color: #fff;
+      box-shadow: 0 6px 0 #b31b40;
+      animation: pulse 1.5s infinite;
+      z-index: 11;
+    }
+    .btn-agree:active {
+      transform: translateY(6px); box-shadow: 0 0 0 #b31b40;
+    }
+
+    .btn-decline {
+      background-color: #6c7a9c; color: #fff;
+      box-shadow: 0 6px 0 #434c63;
+      /* Thêm hiệu ứng di chuyển mượt mà khi nút nhảy */
+      transition: left 0.2s ease, top 0.2s ease, transform 0.1s;
+      z-index: 12;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    /* ------------------------------------------- */
+
     .controls-panel {
       width: 100%; max-width: 480px; margin-top: 14px; display: flex; flex-direction: column;
       gap: 10px; background: #161922; border: 1px solid #2b3245; border-radius: 8px; padding: 12px 16px;
@@ -45,6 +99,14 @@
 
   <div class="scene-container">
     <canvas id="pixelCanvas" width="240" height="290"></canvas>
+    
+    <!-- Lớp phủ chứa nhóm nút tương tác -->
+    <div class="interactive-overlay" id="interactiveOverlay">
+      <div class="btn-group" id="btnGroup">
+        <button class="btn-agree" id="btnAgree">ĐỒNG Ý ♡</button>
+        <button class="btn-decline" id="btnDecline">TỪ CHỐI ✖</button>
+      </div>
+    </div>
   </div>
 
   <div class="controls-panel">
@@ -62,8 +124,7 @@
     </div>
   </div>
 
-  <!-- Cập nhật tên file thành tên video/audio của bạn -->
-  <audio id="bgMusic" src="goi-con-tim-full1.mp3" preload="auto"></audio>
+  <audio id="bgMusic" src="goi-con-tim-full.mp3" preload="auto"></audio>
 
   <script>
     const canvas = document.getElementById('pixelCanvas');
@@ -71,14 +132,14 @@
     const W = canvas.width;
     const H = canvas.height;
 
-    const DURATION = 108.0; // Tổng thời lượng bản full (1 phút 48 giây)
+    const DURATION = 108.0; 
     let currentTime = 0;
     let isPlaying = false; 
     let soundEnabled = true;
+    let hasAgreed = false; 
     let lastStamp = performance.now();
     const bgMusic = document.getElementById('bgMusic');
 
-    // Dữ liệu lời thoại được ánh xạ khớp hoàn toàn với bản nhạc 1:48s
     const dialogues = [
       { start: 5.0, end: 15.0, target: 'male', text: 'bầu trời đêm nay đẹp quá' },
       { start: 23.0, end: 32.0, target: 'male', text: 'anh đã chờ em rất lâu...' },
@@ -102,13 +163,14 @@
     }));
 
     const hearts = Array.from({ length: 30 }, () => ({
-      spawnTime: 85 + Math.random() * 15, // Trái tim bắt đầu bay sau giây 85 (lúc ôm nhau)
+      spawnTime: 85 + Math.random() * 15, 
       xOff: (Math.random() - 0.5) * 36,
       speed: 10 + Math.random() * 14,
       scale: Math.random() > 0.4 ? 1 : 1.5,
       phase: Math.random() * 6
     }));
 
+    // (CÁC HÀM VẼ GIỮ NGUYÊN)
     function drawPixelMoon(cx, cy, r) {
       ctx.fillStyle = '#f6f6f6';
       for (let y = -r; y <= r; y++) {
@@ -119,21 +181,17 @@
       ctx.fillStyle = '#d0d4da';
       ctx.fillRect(cx - 3, cy - 2, 2, 2); ctx.fillRect(cx + 2, cy + 3, 3, 2); ctx.fillRect(cx + 3, cy - 4, 2, 2);
     }
-
     function drawPixelFlower(x, y) {
       ctx.fillStyle = '#3ca346'; ctx.fillRect(x, y, 2, 8); ctx.fillRect(x - 2, y + 3, 2, 2);
       ctx.fillStyle = '#ffde59'; ctx.fillRect(x - 2, y - 4, 6, 4); ctx.fillRect(x - 4, y - 2, 10, 2);
       ctx.fillStyle = '#ff4d4d'; ctx.fillRect(x, y - 3, 2, 2);
     }
-
     function drawPixelHeart(x, y, scale = 1) {
-      ctx.fillStyle = '#ff3366';
-      const s = scale;
+      ctx.fillStyle = '#ff3366'; const s = scale;
       [[1,2], [2,2], [4,2], [5,2], [0,3], [1,3], [2,3], [3,3], [4,3], [5,3], [6,3],
        [0,4], [1,4], [2,4], [3,4], [4,4], [5,4], [6,4], [1,5], [2,5], [3,5], [4,5], [5,5],
        [2,6], [3,6], [4,6], [3,7]].forEach(([px, py]) => ctx.fillRect(x + px * s, y + py * s, s, s));
     }
-
     function drawMaleCharacter(x, y) {
       ctx.fillStyle = '#3c79e6'; ctx.fillRect(x + 10, y - 7, 10, 4); ctx.fillRect(x + 8, y - 3, 14, 3);
       ctx.fillStyle = '#f05454'; ctx.fillRect(x + 6, y, 18, 5); ctx.fillRect(x + 2, y + 5, 26, 11);
@@ -141,7 +199,6 @@
       ctx.fillStyle = '#111111'; ctx.fillRect(x + 10, y + 9, 2, 2); ctx.fillRect(x + 19, y + 9, 2, 2);
       ctx.fillStyle = '#c73a3a'; ctx.fillRect(x + 8, y + 16, 4, 4); ctx.fillRect(x + 18, y + 16, 4, 4);
     }
-
     function drawFemaleCharacter(x, y) {
       ctx.fillStyle = '#ffde59'; ctx.fillRect(x + 10, y - 5, 4, 3); ctx.fillRect(x + 16, y - 5, 4, 3);
       ctx.fillStyle = '#ff9900'; ctx.fillRect(x + 13, y - 4, 4, 3);
@@ -151,7 +208,6 @@
       ctx.fillStyle = '#111111'; ctx.fillRect(x + 9, y + 9, 2, 2); ctx.fillRect(x + 18, y + 9, 2, 2);
       ctx.fillStyle = '#dc7699'; ctx.fillRect(x + 8, y + 16, 4, 4); ctx.fillRect(x + 18, y + 16, 4, 4);
     }
-
     function drawCoupleEmbrace(x, y) {
       ctx.fillStyle = '#3c79e6'; ctx.fillRect(x + 4, y - 7, 8, 4); ctx.fillRect(x + 2, y - 3, 12, 3);
       ctx.fillStyle = '#f05454'; ctx.fillRect(x - 2, y, 22, 16);
@@ -164,7 +220,6 @@
       ctx.fillStyle = '#c73a3a'; ctx.fillRect(x + 2, y + 16, 4, 4); ctx.fillRect(x + 10, y + 16, 4, 4);
       ctx.fillStyle = '#dc7699'; ctx.fillRect(x + 24, y + 16, 4, 4); ctx.fillRect(x + 32, y + 16, 4, 4);
     }
-
     function drawPixelSpeechBubble(bx, by, text, flipTail = false) {
       ctx.font = '8px "Press Start 2P", monospace';
       const textMetrics = ctx.measureText(text);
@@ -187,8 +242,7 @@
       stars.forEach(st => {
         const flicker = Math.sin(time * st.twinkleSpeed + st.offset);
         if (flicker > -0.2) {
-          ctx.fillStyle = flicker > 0.6 ? '#ffffff' : '#7285a5';
-          ctx.fillRect(st.x, st.y, 1, 1);
+          ctx.fillStyle = flicker > 0.6 ? '#ffffff' : '#7285a5'; ctx.fillRect(st.x, st.y, 1, 1);
         }
       });
       drawPixelMoon(195, 36, 12);
@@ -205,17 +259,15 @@
       const groundLevel = groundY - 20;
       const bob = Math.round(Math.sin(time * 5) * 1.5);
       
-      // Chuyển động xích lại gần nhau khớp với đoạn nhạc chậm ban đầu
       let maleX = 30, femaleX = 180;
       if (time > 30 && time <= 70) {
         const p = (time - 30) / 40;
-        maleX = 30 + p * 66;
-        femaleX = 180 - p * 66;
+        maleX = 30 + p * 66; femaleX = 180 - p * 66;
       } else if (time > 70) {
         maleX = 96; femaleX = 114;
       }
 
-      const isEmbracing = time >= 85.0; // Ôm nhau ở giây thứ 85
+      const isEmbracing = time >= 85.0; 
 
       if (!isEmbracing) {
         drawMaleCharacter(Math.round(maleX), groundLevel + bob);
@@ -245,20 +297,73 @@
       }
     }
 
+    // ==========================================
+    // LOGIC NÚT ĐỒNG Ý & TỪ CHỐI (ÉP BUỘC)
+    // ==========================================
+    const interactiveOverlay = document.getElementById('interactiveOverlay');
+    const btnGroup = document.getElementById('btnGroup');
+    const btnAgree = document.getElementById('btnAgree');
+    const btnDecline = document.getElementById('btnDecline');
+    
+    // 1. Logic nhấn Đồng Ý
+    btnAgree.addEventListener('click', () => {
+      hasAgreed = true;
+      interactiveOverlay.classList.remove('show');
+      isPlaying = true;
+      if (soundEnabled) bgMusic.play();
+      btnPlay.innerText = '⏸ TẠM DỪNG';
+    });
+
+    // 2. Logic trêu đùa: Nút Từ Chối né chuột (hoặc chạm tay trên điện thoại)
+    function evadeCursor(e) {
+      if(e.type === 'touchstart') e.preventDefault(); // Tránh lỗi zoom trên mobile
+      
+      const overlayRect = interactiveOverlay.getBoundingClientRect();
+      const btnRect = btnDecline.getBoundingClientRect();
+
+      // Tính toán khoảng không gian an toàn để nút không lọt ra ngoài màn hình đen
+      const maxX = overlayRect.width - btnRect.width - 20;
+      const maxY = overlayRect.height - btnRect.height - 20;
+
+      const randomX = Math.max(10, Math.floor(Math.random() * maxX));
+      const randomY = Math.max(10, Math.floor(Math.random() * maxY));
+
+      // Đổi thành absolute để nút bay tự do
+      btnDecline.style.position = 'absolute';
+      btnDecline.style.left = `${randomX}px`;
+      btnDecline.style.top = `${randomY}px`;
+    }
+
+    btnDecline.addEventListener('mouseover', evadeCursor);
+    btnDecline.addEventListener('touchstart', evadeCursor); // Hỗ trợ điện thoại
+
+    // ==========================================
+
     function tick(now) {
       const dt = (now - lastStamp) / 1000;
       lastStamp = now;
+      
       if (isPlaying) {
-        if (soundEnabled && bgMusic.readyState > 0 && !bgMusic.paused) {
-          currentTime = bgMusic.currentTime;
+        // KIỂM TRA MỐC THỜI GIAN ĐỂ DỪNG LẠI (68.5 giây - Hỏi "em đồng ý nhé?")
+        if (currentTime >= 68.5 && currentTime < 70 && !hasAgreed) {
+          isPlaying = false;
+          bgMusic.pause();
+          btnPlay.innerText = '▶ PHÁT';
+          interactiveOverlay.classList.add('show');
         } else {
-          currentTime += dt;
+          if (soundEnabled && bgMusic.readyState > 0 && !bgMusic.paused) {
+            currentTime = bgMusic.currentTime;
+          } else {
+            currentTime += dt;
+          }
         }
+
         if (currentTime >= DURATION) {
           currentTime = 0; bgMusic.currentTime = 0; bgMusic.pause();
           isPlaying = false; btnPlay.innerText = '▶ PHÁT';
         }
       }
+      
       render(currentTime); updateUI(); requestAnimationFrame(tick);
     }
 
@@ -283,6 +388,14 @@
 
     btnRestart.addEventListener('click', () => {
       currentTime = 0; bgMusic.currentTime = 0; isPlaying = true;
+      hasAgreed = false;
+      interactiveOverlay.classList.remove('show');
+      
+      // Reset vị trí nút TỪ CHỐI về chỗ cũ
+      btnDecline.style.position = 'relative';
+      btnDecline.style.left = 'auto';
+      btnDecline.style.top = 'auto';
+
       btnPlay.innerText = '⏸ TẠM DỪNG'; if (soundEnabled) bgMusic.play();
     });
 
@@ -295,6 +408,13 @@
       const rect = progressBar.getBoundingClientRect();
       currentTime = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * DURATION;
       bgMusic.currentTime = currentTime;
+      if (currentTime < 68) {
+        hasAgreed = false;
+        interactiveOverlay.classList.remove('show');
+        btnDecline.style.position = 'relative';
+        btnDecline.style.left = 'auto';
+        btnDecline.style.top = 'auto';
+      }
     });
 
     requestAnimationFrame(tick);
